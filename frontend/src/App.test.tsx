@@ -3,5 +3,5 @@ import App from './App'
 
 test('renders app without crashing', () => {
   render(<App />)
-  expect(document.body).toBeTruthy()
+  expect(screen.getByRole('heading', { name: /get started/i })).toBeInTheDocument()
 })
