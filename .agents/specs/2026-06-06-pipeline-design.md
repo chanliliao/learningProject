@@ -254,9 +254,16 @@ Routes registered in `backend/app/main.py` per existing convention.
 
 ## Implementation Milestones
 
-Four sequential milestones; each is independently shippable and gets its own implementation plan and
-feature branch.
+Sequential milestones; each is independently shippable and gets its own implementation plan and
+feature branch. **M0 is a walking skeleton** that wires every technology end-to-end with trivial
+code before any pipeline logic exists — so integration failures (Docker, connection strings, CORS,
+LLM key) surface on a tiny surface, not buried under feature code.
 
+- **M0 — Walking skeleton:** Docker (Postgres + Qdrant) up; FastAPI backend starts with health
+  endpoints for DB, Qdrant, and a live LLM call (PydanticAI→OpenRouter); Vite+React+Tailwind
+  frontend starts and shows a status dashboard calling the backend over `VITE_API_URL` with CORS.
+  Outcome: browser shows green status for backend, Postgres, Qdrant, and a real one-line LLM reply.
+  Each wire added and verified one at a time.
 - **M1 — Foundation + spine:** Docker (Postgres + Qdrant), SQLModel models, Alembic, PydanticAI +
   OpenRouter client with Langfuse + LLMCall logging, target schemas, Extract node, Map node, a
   **LangGraph graph** (Extract→Map with an interrupt before review) + Postgres checkpointer, run +

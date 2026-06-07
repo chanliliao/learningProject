@@ -33,6 +33,22 @@ So that I can see a machine-proposed source→target mapping persisted and await
 
 ---
 
+## Prerequisites (delivered by M0)
+
+M1 builds on the **M0 walking skeleton**. These already exist and are verified — do **not** recreate:
+
+- `docker-compose.yml` (Postgres + Qdrant) — running.
+- `backend/app/config.py` (`Settings` incl. `database_url`, `openrouter_*`, `qdrant_url`,
+  `langfuse_*`, `llm_mode`, `confidence_threshold`) and `backend/.env.example`.
+- `backend/app/db.py` with `get_engine()` (+ `ping_db()`); M1 adds `get_session()`.
+- `backend/app/llm/client.py` minimal PydanticAI client (`_model`, `ping_llm`); M1 extends it with
+  `build_agent` + `run_structured` (+ LLMCall logging, Langfuse).
+- Base deps: `pydantic-settings`, `psycopg[binary]`, `sqlalchemy`, `qdrant-client`,
+  `pydantic-ai-slim[openai]`, `langfuse`. M1 adds the rest below.
+- CORS + `/health*` endpoints; Tailwind frontend status dashboard.
+
+---
+
 ## Patterns to Follow
 
 ### Backend route + handler
@@ -106,119 +122,26 @@ pytest config (`backend/pyproject.toml:17-20`): `testpaths=["tests"]`, `pythonpa
 
 ---
 
-## Story 1 — Infrastructure & database foundation
+## Story 1 — Dependencies & DB session (deltas over M0)
 
-### Task 1.1: Docker Postgres + Qdrant
+> M0 already provides docker-compose, `config.py`, `db.py` (`get_engine`/`ping_db`), `.env.example`,
+> and base deps. This story only adds what M1 needs on top.
 
-- **File:** `docker-compose.yml` (CREATE)
-- [ ] **Step 1 — write compose file**
-
-```yaml
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: pipeline
-      POSTGRES_PASSWORD: pipeline
-      POSTGRES_DB: pipeline
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrantdata:/qdrant/storage
-volumes:
-  pgdata:
-  qdrantdata:
-```
-
-- [ ] **Step 2 — verify** `docker-compose up -d`; `docker-compose ps` shows `db` + `qdrant` up;
-  `curl http://localhost:6333/healthz` returns ok. Tear down with `docker-compose down`.
-- [ ] **Step 3 — commit:** `chore: add postgres + qdrant docker-compose`
-
-### Task 1.2: Backend dependencies
+### Task 1.1: Add M1-specific dependencies
 
 - **File:** `backend/pyproject.toml` (UPDATE)
-- **Mirror:** existing `[project].dependencies` + `[dependency-groups].dev` (`backend/pyproject.toml:7-15`)
-- [ ] **Step 1 — add runtime deps** to `[project].dependencies`:
-  `sqlmodel>=0.0.22`, `psycopg[binary]>=3.2`, `alembic>=1.13`, `lxml>=5.3`,
-  `pydantic-settings>=2.5`, `langgraph>=0.2.50`, `langgraph-checkpoint-postgres>=2.0`,
-  `pydantic-ai-slim[openai]>=0.0.14`, `langfuse>=2.50`.
-- [ ] **Step 2 — run** `cd backend && uv sync` → succeeds, lockfile updated.
-- [ ] **Step 3 — commit:** `chore: add langgraph, pydantic-ai, langfuse, db deps`
+- [ ] **Step 1 — add** to `[project].dependencies` (M0 deps already present):
+  `sqlmodel>=0.0.22`, `alembic>=1.13`, `lxml>=5.3`, `langgraph>=0.2.50`,
+  `langgraph-checkpoint-postgres>=2.0`.
+- [ ] **Step 2 — verify (gate):** `cd backend && uv sync` succeeds; confirm
+  `from langgraph.graph import StateGraph`, `from sqlmodel import SQLModel`, `import lxml.etree`
+  all import. If `uv sync` resolves newer compatible versions, accept them.
+- [ ] **Step 3 — commit:** `chore: add langgraph, sqlmodel, alembic, lxml deps`
 
-> Note: exact minimum versions may shift; if `uv sync` resolves newer compatible versions, accept
-> them. Confirm `from langgraph.graph import StateGraph`, `from pydantic_ai import Agent`, and
-> `from langfuse import Langfuse` all import after sync.
+### Task 1.2: Add SQLModel session helper
 
-### Task 1.3: Settings + env
-
-- **Files:** `backend/app/config.py` (CREATE), `backend/.env.example` (CREATE)
-- [ ] **Step 1 — write failing test** `backend/tests/test_config.py`:
-
-```python
-from app.config import get_settings
-
-def test_settings_reads_env(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "sqlite://")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "x")
-    get_settings.cache_clear()
-    s = get_settings()
-    assert s.database_url == "sqlite://"
-    assert s.openrouter_api_key == "x"
-    assert s.qdrant_url.startswith("http")
-    assert s.llm_mode in ("real", "test")
-```
-
-- [ ] **Step 2 — run** `uv run pytest tests/test_config.py -v` → FAIL.
-- [ ] **Step 3 — implement** `app/config.py`:
-
-```python
-from functools import lru_cache
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-    database_url: str = "sqlite:///./pipeline.db"
-    openrouter_api_key: str = ""
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "openai/gpt-4o-mini"   # cheapest workable default
-    qdrant_url: str = "http://localhost:6333"
-    langfuse_public_key: str = ""
-    langfuse_secret_key: str = ""
-    langfuse_host: str = "https://cloud.langfuse.com"
-    llm_mode: str = "real"          # "test" => PydanticAI TestModel, no network
-    confidence_threshold: float = 0.8
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-```
-
-- [ ] **Step 4 — run** → PASS.
-- [ ] **Step 5 — write** `backend/.env.example`:
-
-```
-OPENROUTER_API_KEY=
-DATABASE_URL=postgresql+psycopg://pipeline:pipeline@localhost:5432/pipeline
-QDRANT_URL=http://localhost:6333
-LANGFUSE_PUBLIC_KEY=
-LANGFUSE_SECRET_KEY=
-LANGFUSE_HOST=https://cloud.langfuse.com
-```
-
-- [ ] **Step 6 — commit:** `feat: add settings module and env example`
-
-### Task 1.4: DB engine + session
-
-- **File:** `backend/app/db.py` (CREATE)
-- [ ] **Step 1 — write failing test** `backend/tests/test_db.py`:
+- **File:** `backend/app/db.py` (UPDATE — extends M0's `get_engine`/`ping_db`)
+- [ ] **Step 1 — write failing test** `backend/tests/test_db_session.py`:
 
 ```python
 def test_session_yields_usable_session(monkeypatch):
@@ -233,23 +156,21 @@ def test_session_yields_usable_session(monkeypatch):
 ```
 
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement** `app/db.py`:
+- [ ] **Step 3 — implement** in `app/db.py` (keep M0's `get_engine`/`ping_db`):
 
 ```python
-from sqlmodel import create_engine, Session
-from app.config import get_settings
-
-def get_engine():
-    s = get_settings()
-    connect_args = {"check_same_thread": False} if s.database_url.startswith("sqlite") else {}
-    return create_engine(s.database_url, connect_args=connect_args)
+from sqlmodel import Session
+# get_engine() already defined in M0
 
 def get_session():
     with Session(get_engine()) as session:
         yield session
 ```
 
-- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: add database engine and session dependency`
+  > If M0's `get_engine` used SQLAlchemy's `create_engine`, it is compatible with `sqlmodel.Session`.
+  > Keep one `get_engine`; do not duplicate.
+
+- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: add sqlmodel session dependency`
 
 ---
 
@@ -430,7 +351,10 @@ class LLMCall(SQLModel, table=True):
 
 ### Task 3.1: PydanticAI client with Langfuse tracing + LLMCall mirror
 
-- **File:** `backend/app/llm/client.py` (CREATE), `backend/app/llm/__init__.py` (CREATE)
+> Extends M0's `app/llm/client.py` (which already has `_model`/`ping_llm`). Keep those; add
+> `build_agent` + `run_structured` with LLMCall logging here.
+
+- **File:** `backend/app/llm/client.py` (UPDATE), `backend/app/llm/__init__.py` (CREATE)
 - [ ] **Step 1 — write failing test** `backend/tests/llm/test_client.py`:
 
 ```python
