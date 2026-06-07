@@ -40,6 +40,16 @@ So that I can trust the output and measure the pipeline's quality.
 
 ---
 
+## Conventions (per spec — apply throughout)
+
+- **Async backend:** node/handler/eval funcs `async def`; `AsyncSession` + awaited queries; graph via
+  `await graph.ainvoke(...)` with an async checkpointer. Deterministic helpers (`build_transform`,
+  `apply_transform`, `run_qa_checks`) stay sync pure functions; their callers/persisters are async.
+- **Frontend uses TanStack Query** (`useQuery`) — not raw `fetch`+`useState`.
+- **Ports/origins:** backend `:8001` (`VITE_API_URL`), frontend `:5174`, CORS `:5174` (from M0).
+
+---
+
 ## Patterns to Follow
 
 ### Node + graph (existing)

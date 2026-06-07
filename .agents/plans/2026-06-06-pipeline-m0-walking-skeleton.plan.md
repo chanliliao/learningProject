@@ -7,22 +7,32 @@
 ## Summary
 
 Before building any pipeline logic, prove the **entire technology stack connects end-to-end** with
-the simplest possible code. Stand up Docker (Postgres + Qdrant), start the FastAPI backend, start the
-Vite frontend, connect frontend → backend over a health API, and make the backend hit the LLM
-(OpenRouter via PydanticAI) and return a simple response — surfaced in the browser. Each piece is
-added and verified one at a time so that any failure (bad Docker image, wrong connection string,
-CORS, missing key) surfaces immediately on a tiny surface, not buried under complex code. This is the
-baseline every later milestone builds on.
+the simplest possible code, using the project's real conventions: **async backend**, **TanStack
+Query** frontend, and **full Docker Compose** (Postgres, Qdrant, backend, frontend). Stand up the
+containers, start the async FastAPI backend, start the Vite/React/Tailwind frontend, connect
+frontend → backend over a health API (TanStack Query), and make the backend hit the LLM (OpenRouter
+via PydanticAI) and return a simple response — surfaced in the browser. Each piece is added and
+verified one at a time so any failure (bad image, wrong port, connection string, CORS, missing key)
+surfaces immediately on a tiny surface.
 
-**Definition of done:** `docker-compose up -d` runs; backend starts; frontend starts; the browser
-shows green status for backend health, Postgres, Qdrant, and a live one-line LLM reply.
+**Definition of done:** `docker-compose up -d` runs all four services; the browser at
+`http://localhost:5174` shows green status for backend health, Postgres, Qdrant, and a live one-line
+LLM reply.
+
+## Ports (host) — avoid existing services on 5432/6333/3000/8000
+
+| Service | Container | Host |
+|---|---|---|
+| Postgres | 5432 | **5433** |
+| Qdrant HTTP / gRPC | 6333 / 6334 | **6433 / 6434** |
+| Backend | 8000 | **8001** |
+| Frontend (Vite) | 5173 | **5174** |
 
 ## User Story
 
 As the developer
-I want a minimal end-to-end slice where every technology is wired and verified
-So that I can add pipeline features on a known-good foundation instead of debugging integration and
-feature code at the same time.
+I want a minimal end-to-end slice where every technology is wired and verified on non-conflicting ports
+So that I can add pipeline features on a known-good foundation.
 
 ## Metadata
 
@@ -31,8 +41,18 @@ feature code at the same time.
 | Type | NEW_CAPABILITY (foundation) |
 | Complexity | MEDIUM |
 | Milestone | M0 of (M0→M4) |
-| Systems Affected | docker, backend (FastAPI, Postgres, Qdrant, PydanticAI, Langfuse), frontend (Vite+React+Tailwind) |
+| Systems Affected | docker, backend (async FastAPI, Postgres, Qdrant, PydanticAI, Langfuse), frontend (Vite+React+Tailwind+TanStack Query) |
 | Jira Issue | N/A |
+
+---
+
+## Conventions (per spec — apply throughout)
+
+- **Async backend:** `async def` handlers; async SQLAlchemy (`create_async_engine`, asyncpg driver);
+  PydanticAI `await agent.run(...)`. FastAPI `TestClient` drives async endpoints in tests.
+- **TanStack Query** for all frontend backend calls.
+- **Full compose:** backend + frontend have Dockerfiles; local `uv`/`npm` dev still available.
+- **Smallest change → verify (gate) → commit.** Never stack two unverified integrations.
 
 ---
 
@@ -40,13 +60,9 @@ feature code at the same time.
 
 ### Backend route + test
 ```python
-# SOURCE: backend/app/main.py:1-8  /  backend/tests/test_health.py:1-10
-from fastapi import FastAPI
-app = FastAPI(title="learningProject API")
-
+# SOURCE: backend/app/main.py:1-8 / backend/tests/test_health.py:1-10
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
+def health() -> dict: return {"status": "ok"}
 ```
 ```python
 from fastapi.testclient import TestClient
@@ -56,23 +72,7 @@ def test_health_returns_ok():
     assert client.get("/health").json() == {"status": "ok"}
 ```
 
-### Frontend test
-```tsx
-# SOURCE: frontend/src/App.test.tsx:1-7
-import { render, screen } from '@testing-library/react'
-import App from './App'
-test('renders app without crashing', () => {
-  render(<App />)
-  expect(screen.getByRole('heading', { name: /get started/i })).toBeInTheDocument()
-})
-```
-
----
-
-## Principle for this milestone
-
-**Smallest change, then verify, then commit.** Never stack two unverified integrations. If a verify
-step fails, fix it before writing the next task's code. Each task ends in a working, committed state.
+### Frontend test — `frontend/src/App.test.tsx:1-7`; `npm test`=`vitest run` (`package.json:6-13`).
 
 ---
 
@@ -80,28 +80,32 @@ step fails, fix it before writing the next task's code. Each task ends in a work
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `docker-compose.yml` | CREATE | Postgres + Qdrant |
-| `backend/pyproject.toml` | UPDATE | Minimal stack deps |
-| `backend/.env.example` | CREATE | env keys |
-| `backend/app/config.py` | CREATE | settings from env |
-| `backend/app/db.py` | CREATE | engine + SELECT 1 ping |
-| `backend/app/main.py` | UPDATE | CORS + health routers |
+| `docker-compose.yml` | CREATE | db + qdrant + backend + frontend (alt ports) |
+| `backend/Dockerfile` | CREATE | Backend image (uv) |
+| `frontend/Dockerfile` | CREATE | Frontend dev image (vite) |
+| `backend/pyproject.toml` | UPDATE | async + stack deps |
+| `backend/.env.example` | CREATE | env keys (alt ports) |
+| `backend/app/config.py` | CREATE | settings |
+| `backend/app/db.py` | CREATE | async engine + ping |
+| `backend/app/main.py` | UPDATE | CORS (5174) + health routers |
 | `backend/app/routers/health.py` | CREATE | /health/db, /health/qdrant, /health/llm |
-| `backend/app/llm/client.py` | CREATE | minimal PydanticAI call |
+| `backend/app/llm/client.py` | CREATE | minimal async PydanticAI call |
 | `frontend/tailwind.config.js`, `postcss.config.js`, `src/index.css` | CREATE/UPDATE | Tailwind |
 | `frontend/src/api.ts` | CREATE | backend client (VITE_API_URL) |
-| `frontend/src/App.tsx` | UPDATE | status dashboard |
-| `frontend/.env.local.example` | CREATE | VITE_API_URL |
+| `frontend/src/queryClient.ts`, `src/main.tsx` | CREATE/UPDATE | TanStack Query provider |
+| `frontend/src/App.tsx` | UPDATE | status dashboard (useQuery) |
+| `frontend/vite.config.ts` | UPDATE | dev server port 5174 |
+| `frontend/.env.local.example` | CREATE | VITE_API_URL=http://localhost:8001 |
 | tests (be + fe) | CREATE | per task |
 
 ---
 
-## Story A — Infrastructure up
+## Story A — Infrastructure (compose, infra services first)
 
-### Task A.1: Docker Postgres + Qdrant
+### Task A.1: Compose with Postgres + Qdrant (alt ports)
 
 - **File:** `docker-compose.yml` (CREATE)
-- [ ] **Step 1 — write:**
+- [ ] **Step 1 — write** (app services added later in Story E):
 
 ```yaml
 services:
@@ -111,44 +115,43 @@ services:
       POSTGRES_USER: pipeline
       POSTGRES_PASSWORD: pipeline
       POSTGRES_DB: pipeline
-    ports: ["5432:5432"]
+    ports: ["5433:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
   qdrant:
     image: qdrant/qdrant:latest
-    ports: ["6333:6333", "6334:6334"]
+    ports: ["6433:6333", "6434:6334"]
     volumes: ["qdrantdata:/qdrant/storage"]
 volumes:
   pgdata:
   qdrantdata:
 ```
 
-- [ ] **Step 2 — verify (gate):** `docker-compose up -d`; `docker-compose ps` shows both running;
-  `curl http://localhost:6333/healthz` returns ok; `docker exec` psql `SELECT 1` works (or
-  `pg_isready`). If image pull or start fails, fix here before anything else.
-- [ ] **Step 3 — commit:** `chore: add postgres + qdrant docker-compose`
+- [ ] **Step 2 — verify (gate):** `docker-compose up -d`; `docker-compose ps` shows both up;
+  `curl http://localhost:6433/healthz` ok; `pg_isready -h localhost -p 5433` ok.
+- [ ] **Step 3 — commit:** `chore: add postgres + qdrant compose on alt ports`
 
 ---
 
-## Story B — Backend baseline
+## Story B — Backend baseline (async)
 
-### Task B.1: Minimal stack dependencies
+### Task B.1: Dependencies
 
 - **File:** `backend/pyproject.toml` (UPDATE) — mirror `:7-15`
 - [ ] **Step 1 — add** to `[project].dependencies`: `pydantic-settings>=2.5`,
-  `psycopg[binary]>=3.2`, `sqlalchemy>=2.0`, `qdrant-client>=1.12`,
-  `pydantic-ai-slim[openai]>=0.0.14`, `langfuse>=2.50`.
-- [ ] **Step 2 — verify (gate):** `cd backend && uv sync` succeeds; in `uv run python -c` confirm
-  `import psycopg, qdrant_client; from pydantic_ai import Agent; from langfuse import Langfuse`.
-- [ ] **Step 3 — commit:** `chore: add minimal backend stack deps`
+  `sqlalchemy[asyncio]>=2.0`, `asyncpg>=0.30`, `psycopg[binary]>=3.2` (for Alembic later),
+  `qdrant-client>=1.12`, `pydantic-ai-slim[openai]>=0.0.14`, `langfuse>=2.50`.
+- [ ] **Step 2 — verify (gate):** `cd backend && uv sync`; confirm
+  `import asyncpg, qdrant_client; from sqlalchemy.ext.asyncio import create_async_engine; from pydantic_ai import Agent`.
+- [ ] **Step 3 — commit:** `chore: add async backend stack deps`
 
-### Task B.2: Settings
+### Task B.2: Settings + env
 
 - **Files:** `backend/app/config.py`, `backend/.env.example` (CREATE)
-- [ ] **Step 1 — failing test** `backend/tests/test_config.py`: set env, assert `get_settings()`
-  exposes `database_url`, `openrouter_api_key`, `qdrant_url`, `llm_mode in ("real","test")`.
+- [ ] **Step 1 — failing test** `backend/tests/test_config.py`: set env; assert `get_settings()`
+  exposes `database_url`, `openrouter_api_key`, `qdrant_url`, `llm_mode in ("real","test")`,
+  `embeddings_provider in ("openrouter","fastembed")`.
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement** `app/config.py` (this is the project's settings module, reused by all
-  milestones):
+- [ ] **Step 3 — implement** `app/config.py`:
 
 ```python
 from functools import lru_cache
@@ -156,11 +159,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    database_url: str = "postgresql+psycopg://pipeline:pipeline@localhost:5432/pipeline"
+    database_url: str = "postgresql+asyncpg://pipeline:pipeline@localhost:5433/pipeline"
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "openai/gpt-4o-mini"
-    qdrant_url: str = "http://localhost:6333"
+    qdrant_url: str = "http://localhost:6433"
+    embeddings_provider: str = "openrouter"   # or "fastembed"
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
@@ -177,8 +181,9 @@ def get_settings() -> Settings:
 
 ```
 OPENROUTER_API_KEY=
-DATABASE_URL=postgresql+psycopg://pipeline:pipeline@localhost:5432/pipeline
-QDRANT_URL=http://localhost:6333
+DATABASE_URL=postgresql+asyncpg://pipeline:pipeline@localhost:5433/pipeline
+QDRANT_URL=http://localhost:6433
+EMBEDDINGS_PROVIDER=openrouter
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 LANGFUSE_HOST=https://cloud.langfuse.com
@@ -186,46 +191,63 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 
 - [ ] **Step 6 — commit:** `feat: add settings module and env example`
 
-### Task B.3: CORS + health wiring
+### Task B.3: CORS + async health wiring
 
 - **File:** `backend/app/main.py` (UPDATE)
-- [ ] **Step 1 — failing test** `backend/tests/test_cors.py`: `client.get("/health")` with an
-  `Origin: http://localhost:5173` header returns `access-control-allow-origin`.
+- [ ] **Step 1 — failing test** `backend/tests/test_cors.py`: `client.get("/health")` with
+  `Origin: http://localhost:5174` returns `access-control-allow-origin`.
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement:** add `CORSMiddleware` allowing `http://localhost:5173` (frontend dev
-  origin). Keep existing `/health`.
-- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: enable CORS for frontend dev origin`
+- [ ] **Step 3 — implement** add `CORSMiddleware` allowing `http://localhost:5174`. Keep `/health`.
+- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: enable CORS for frontend dev origin (5174)`
 
-### Task B.4: Postgres health endpoint
+### Task B.4: Async Postgres health
 
 - **Files:** `backend/app/db.py`, `backend/app/routers/health.py` (CREATE), `main.py` (UPDATE)
-- [ ] **Step 1 — failing test** `backend/tests/routers/test_health_db.py`: override the DB ping
-  dependency to return ok; `GET /health/db` → `{"status":"ok"}`. Add a test where the ping raises →
-  `503`.
+- [ ] **Step 1 — failing test** `backend/tests/routers/test_health_db.py`: override the db-ping
+  dependency to return ok → `GET /health/db` `{"status":"ok"}`; override to raise → `503`.
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement** `app/db.py` with `get_engine()` and `ping_db()` running `SELECT 1`;
-  `routers/health.py` `GET /health/db` returning ok or raising `HTTPException(503)`; include router
-  in `main.py`.
-- [ ] **Step 4 — verify (gate):** with `docker-compose up -d`, run `uv run fastapi dev app/main.py`
-  and `curl localhost:8000/health/db` → ok. (Confirms real Postgres connection string works.)
-- [ ] **Step 5 — run** tests → PASS. **Step 6 — commit:** `feat: add postgres health endpoint`
+- [ ] **Step 3 — implement** `app/db.py`:
 
-### Task B.5: Qdrant health endpoint
+```python
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy import text
+from app.config import get_settings
+
+_engine = None
+def get_engine():
+    global _engine
+    if _engine is None:
+        _engine = create_async_engine(get_settings().database_url)
+    return _engine
+
+async def ping_db() -> None:
+    async with get_engine().connect() as conn:
+        await conn.execute(text("SELECT 1"))
+```
+
+  `routers/health.py`: `@router.get("/health/db")` `async def` calling `ping_db()`, raising
+  `HTTPException(503)` on error. Include router in `main.py`.
+- [ ] **Step 4 — verify (gate):** with compose up, `uv run fastapi dev app/main.py --port 8001`,
+  `curl localhost:8001/health/db` → ok (real Postgres on 5433).
+- [ ] **Step 5 — run** tests → PASS. **Step 6 — commit:** `feat: add async postgres health endpoint`
+
+### Task B.5: Qdrant health
 
 - **File:** `backend/app/routers/health.py` (UPDATE)
-- [ ] **Step 1 — failing test** `backend/tests/routers/test_health_qdrant.py`: override the qdrant
-  ping dependency; `GET /health/qdrant` → ok; failure → `503`.
+- [ ] **Step 1 — failing test** `backend/tests/routers/test_health_qdrant.py`: override qdrant-ping
+  dependency; ok → `GET /health/qdrant` ok; raise → 503.
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement** a `ping_qdrant()` using `QdrantClient(url=settings.qdrant_url)` calling
-  `get_collections()`; `GET /health/qdrant`.
-- [ ] **Step 4 — verify (gate):** `curl localhost:8000/health/qdrant` → ok with Qdrant up.
+- [ ] **Step 3 — implement** `ping_qdrant()` using `QdrantClient(url=settings.qdrant_url)` →
+  `get_collections()` (run in a threadpool via `await run_in_threadpool(...)` since the client is
+  sync). `GET /health/qdrant`.
+- [ ] **Step 4 — verify (gate):** `curl localhost:8001/health/qdrant` → ok (Qdrant on 6433).
 - [ ] **Step 5 — run** tests → PASS. **Step 6 — commit:** `feat: add qdrant health endpoint`
 
-### Task B.6: LLM health endpoint (PydanticAI → OpenRouter)
+### Task B.6: LLM health (async PydanticAI → OpenRouter)
 
 - **Files:** `backend/app/llm/client.py` (CREATE), `routers/health.py` (UPDATE)
 - [ ] **Step 1 — failing test** `backend/tests/routers/test_health_llm.py`: with `llm_mode="test"`
-  (PydanticAI `TestModel`), `GET /health/llm` → 200 with a non-empty `reply` string. No network.
+  (PydanticAI `TestModel`), `GET /health/llm` → 200 with a non-empty `reply`. No network.
 - [ ] **Step 2 — run** → FAIL.
 - [ ] **Step 3 — implement** `app/llm/client.py`:
 
@@ -243,66 +265,112 @@ def _model(mode: str | None = None):
     return OpenAIModel(s.openrouter_model,
         provider=OpenAIProvider(base_url=s.openrouter_base_url, api_key=s.openrouter_api_key))
 
-def ping_llm(mode: str | None = None) -> str:
+async def ping_llm(mode: str | None = None) -> str:
     agent = Agent(_model(mode), output_type=str, system_prompt="Reply with a short greeting.")
-    return agent.run_sync("Say hello in five words or fewer.").output
+    result = await agent.run("Say hello in five words or fewer.")
+    return result.output
 ```
 
-  Then `GET /health/llm` returns `{"status":"ok","reply": ping_llm()}`; on exception → `503`.
-- [ ] **Step 4 — verify (gate):** with a real `OPENROUTER_API_KEY` in `backend/.env`,
-  `curl localhost:8000/health/llm` returns a real one-line model reply. (Confirms the whole LLM path:
-  key, OpenRouter, PydanticAI.)
-- [ ] **Step 5 — run** tests → PASS. **Step 6 — commit:** `feat: add llm health endpoint via PydanticAI/OpenRouter`
+  `GET /health/llm` (`async def`) → `{"status":"ok","reply": await ping_llm()}`; 503 on error.
+- [ ] **Step 4 — verify (gate):** with a real `OPENROUTER_API_KEY`, `curl localhost:8001/health/llm`
+  returns a real one-line reply (whole LLM path proven).
+- [ ] **Step 5 — run** tests → PASS. **Step 6 — commit:** `feat: add async llm health endpoint`
 
 ---
 
-## Story C — Frontend baseline
+## Story C — Frontend baseline (Tailwind + TanStack Query)
 
-### Task C.1: Tailwind setup
+### Task C.1: Vite port + Tailwind
 
-- **Files:** `frontend/tailwind.config.js`, `frontend/postcss.config.js`, `frontend/src/index.css`
-  (CREATE/UPDATE), `frontend/package.json` (UPDATE)
-- [ ] **Step 1 — install:** `cd frontend && npm install -D tailwindcss postcss autoprefixer && npx tailwindcss init -p`
-- [ ] **Step 2 — configure** `content: ["./index.html","./src/**/*.{ts,tsx}"]`; add the three
-  `@tailwind` directives to `src/index.css`; ensure `index.css` is imported in `main.tsx`.
-- [ ] **Step 3 — verify (gate):** `npm run build` succeeds; `npm run dev` renders a Tailwind-styled
-  element (e.g. a `className="text-2xl font-bold"` heading) correctly in the browser.
-- [ ] **Step 4 — commit:** `feat: set up Tailwind CSS`
+- **Files:** `frontend/vite.config.ts`, `tailwind.config.js`, `postcss.config.js`, `src/index.css`
+  (CREATE/UPDATE), `package.json` (UPDATE)
+- [ ] **Step 1 — set** Vite dev port: in `vite.config.ts`, `server: { port: 5174, host: true }`.
+- [ ] **Step 2 — install:** `npm install -D tailwindcss postcss autoprefixer && npx tailwindcss init -p`;
+  set `content: ["./index.html","./src/**/*.{ts,tsx}"]`; add `@tailwind` directives to `index.css`;
+  import `index.css` in `main.tsx`.
+- [ ] **Step 3 — verify (gate):** `npm run build` ok; `npm run dev` serves on **5174** with a
+  Tailwind-styled element.
+- [ ] **Step 4 — commit:** `feat: set Vite port 5174 and Tailwind`
 
-### Task C.2: Backend API client + status dashboard
+### Task C.2: TanStack Query provider + API client
 
-- **Files:** `frontend/src/api.ts`, `frontend/src/App.tsx` (CREATE/UPDATE),
-  `frontend/.env.local.example` (CREATE)
-- [ ] **Step 1 — failing test** `frontend/src/App.test.tsx` (replace template test): mock `fetch` to
-  return ok for `/health`, `/health/db`, `/health/qdrant`, and `{reply:"hi"}` for `/health/llm`;
-  render `<App />`; assert it shows a "Backend", "Postgres", "Qdrant", and "LLM" status and the LLM
-  reply text. Use `@testing-library` `findBy*` for the async results.
+- **Files:** `frontend/package.json`, `src/api.ts`, `src/queryClient.ts`, `src/main.tsx`,
+  `.env.local.example` (CREATE/UPDATE)
+- [ ] **Step 1 — install:** `npm install @tanstack/react-query`.
+- [ ] **Step 2 — implement** `src/api.ts` reading `import.meta.env.VITE_API_URL` (default
+  `http://localhost:8001`) with `getHealth/getDbHealth/getQdrantHealth/getLlmHealth`;
+  `src/queryClient.ts` exports a `QueryClient`; wrap `<App/>` in `<QueryClientProvider>` in
+  `main.tsx`. Write `.env.local.example` `VITE_API_URL=http://localhost:8001`.
+- [ ] **Step 3 — commit:** `feat: add TanStack Query provider and API client`
+
+### Task C.3: Status dashboard
+
+- **File:** `frontend/src/App.tsx` (UPDATE), `frontend/src/App.test.tsx` (UPDATE)
+- [ ] **Step 1 — failing test** `App.test.tsx`: render `<App/>` inside a `QueryClientProvider` with
+  `fetch` mocked (ok for health/db/qdrant, `{reply:"hi"}` for llm); assert it shows Backend,
+  Postgres, Qdrant, LLM statuses and the reply (use `findBy*`).
 - [ ] **Step 2 — run** `npm test` → FAIL.
-- [ ] **Step 3 — implement** `src/api.ts` reading `import.meta.env.VITE_API_URL` (default
-  `http://localhost:8000`) with helpers `getHealth()`, `getDbHealth()`, `getQdrantHealth()`,
-  `getLlmHealth()`. Rewrite `App.tsx` as a Tailwind status dashboard that calls all four on mount and
-  renders a row per service (green/red) plus the LLM reply. Write `.env.local.example` with
-  `VITE_API_URL=http://localhost:8000`.
-- [ ] **Step 4 — run** `npm test` → PASS.
-- [ ] **Step 5 — commit:** `feat: add backend status dashboard frontend`
+- [ ] **Step 3 — implement** `App.tsx` as a Tailwind dashboard using `useQuery` per health check;
+  render a green/red row per service + the LLM reply.
+- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: add backend status dashboard (useQuery)`
 
 ---
 
-## Story D — End-to-end verification
+## Story D — Containerize the app
 
-### Task D.1: Full-stack smoke + docs
+### Task D.1: Backend + frontend Dockerfiles
 
-- **File:** `README.md` (UPDATE) — add an "M0 smoke test" section
-- [ ] **Step 1 — write** the exact run sequence:
-  1. `docker-compose up -d`
-  2. backend: copy `.env.example`→`.env`, set `OPENROUTER_API_KEY`, `uv sync`,
-     `uv run fastapi dev app/main.py`
-  3. frontend: copy `.env.local.example`→`.env.local`, `npm install`, `npm run dev`
-  4. open `http://localhost:5173`
-- [ ] **Step 2 — verify (gate, MANUAL END-TO-END):** browser shows green for Backend, Postgres,
-  Qdrant, and a real one-line **LLM reply**. This is the milestone's whole point — confirm it live.
-- [ ] **Step 3 — run** both suites: `cd backend && uv run pytest -v` and `cd frontend && npm test` →
-  all pass.
+- **Files:** `backend/Dockerfile`, `frontend/Dockerfile` (CREATE)
+- [ ] **Step 1 — backend Dockerfile** (uv base, copy, `uv sync`, run
+  `uv run fastapi run app/main.py --host 0.0.0.0 --port 8000`).
+- [ ] **Step 2 — frontend Dockerfile** (node base, `npm ci`, dev: `npm run dev -- --host --port 5173`;
+  or build + `vite preview`). Dev image is fine for M0.
+- [ ] **Step 3 — verify (gate):** `docker build` succeeds for both.
+- [ ] **Step 4 — commit:** `chore: add backend and frontend Dockerfiles`
+
+### Task D.2: Add app services to compose
+
+- **File:** `docker-compose.yml` (UPDATE)
+- [ ] **Step 1 — add** services:
+
+```yaml
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pipeline:pipeline@db:5432/pipeline
+      QDRANT_URL: http://qdrant:6333
+    ports: ["8001:8000"]
+    depends_on: [db, qdrant]
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://localhost:8001
+    ports: ["5174:5173"]
+    depends_on: [backend]
+```
+
+  (Note: in-container the backend reaches db/qdrant by service name on container ports; host maps
+  to 8001/5174.)
+- [ ] **Step 2 — verify (gate):** `docker-compose up -d --build`; all four healthy;
+  `curl localhost:8001/health/db` and `/health/qdrant` ok from the containerized backend.
+- [ ] **Step 3 — commit:** `chore: add backend and frontend to docker-compose`
+
+---
+
+## Story E — End-to-end verification
+
+### Task E.1: Full-stack smoke + docs
+
+- **File:** `README.md` (UPDATE) — add "M0 smoke test"
+- [ ] **Step 1 — write** the run sequence (document both paths):
+  - **Compose:** copy `backend/.env.example`→`backend/.env`, set `OPENROUTER_API_KEY`;
+    `docker-compose up -d --build`; open `http://localhost:5174`.
+  - **Local dev:** `docker-compose up -d db qdrant`; backend `uv run fastapi dev app/main.py --port 8001`;
+    frontend `npm run dev -- --port 5174`.
+- [ ] **Step 2 — verify (gate, MANUAL END-TO-END):** browser at `localhost:5174` shows green for
+  Backend, Postgres, Qdrant, and a real one-line **LLM reply**.
+- [ ] **Step 3 — run** both suites: `cd backend && uv run pytest -v`; `cd frontend && npm test` → pass.
 - [ ] **Step 4 — commit:** `docs: add M0 full-stack smoke test instructions`
 
 ---
@@ -310,30 +378,27 @@ def ping_llm(mode: str | None = None) -> str:
 ## Validation
 
 ```bash
-docker-compose up -d
-cd backend && uv sync && uv run pytest -v        # backend tests pass
-uv run fastapi dev app/main.py                   # then curl the 4 health endpoints
-cd frontend && npm install && npm test           # frontend tests pass
-npm run dev                                       # browser dashboard all green + LLM reply
+docker-compose up -d --build                      # db(5433) qdrant(6433) backend(8001) frontend(5174)
+cd backend && uv run pytest -v
+cd frontend && npm test && npm run build
+# browser http://localhost:5174 => all green + live LLM reply
 ```
 
 ## Acceptance Criteria
 
-- [ ] `docker-compose up -d` starts Postgres + Qdrant (verified, not assumed)
-- [ ] Backend starts; `/health`, `/health/db`, `/health/qdrant`, `/health/llm` all return ok live
+- [ ] `docker-compose up -d --build` starts all four services on the alt ports (no 5432/6333/3000/8000)
+- [ ] Backend (async) serves `/health`, `/health/db`, `/health/qdrant`, `/health/llm` live
 - [ ] `/health/llm` returns a real model reply with a valid OpenRouter key
-- [ ] Frontend starts with Tailwind; dashboard calls backend via `VITE_API_URL`
-- [ ] CORS allows the frontend dev origin
-- [ ] Browser shows green status for all four + the live LLM reply (manual end-to-end gate)
-- [ ] All backend + frontend tests pass offline (LLM via TestModel, fetch mocked)
+- [ ] Frontend (Vite:5174, Tailwind, TanStack Query) dashboard calls backend via `VITE_API_URL=:8001`
+- [ ] CORS allows `http://localhost:5174`
+- [ ] Browser shows green for all four + live LLM reply (manual end-to-end gate)
+- [ ] All backend + frontend tests pass offline (TestModel, fetch mocked)
 
 ---
 
-## What M0 deliberately excludes (added in later milestones)
+## What M0 deliberately excludes (later milestones)
 
-- No DB models, migrations, or pipeline logic (M1).
-- No LangGraph graph, Extract/Map nodes, or structured mapping (M1).
-- No confidence scoring, review gates, or full review console (M2).
-- No Build/Test/eval (M3); no LlamaIndex indexing / Support RAG (M4).
+- No DB models, migrations, or pipeline logic (M1); no LangGraph nodes (M1).
+- No confidence/review/console (M2); no Build/Test/eval (M3); no LlamaIndex/Support RAG (M4).
 
-M0 only proves the wiring. Everything after it extends a known-good baseline.
+M0 only proves the wiring. Everything after extends a known-good baseline.

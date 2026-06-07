@@ -41,6 +41,19 @@ So that nothing goes live without my review and every decision is recorded.
 
 ---
 
+## Conventions (per spec — apply throughout)
+
+- **Async backend:** node/handler funcs are `async def`; `AsyncSession` + awaited queries;
+  `await run_structured(...)`; graph via `await graph.ainvoke(...)` / `Command(resume=...)` with an
+  async checkpointer (`MemorySaver` in tests). Backend snippets below that show sync sessions are
+  illustrative — implement them async.
+- **Frontend uses TanStack Query** (`useQuery` w/ `refetchInterval` for run polling; `useMutation`
+  for reviews) — not raw `fetch`+`useState`. App is wrapped in `QueryClientProvider` (from M0).
+- **Ports/origins:** backend `http://localhost:8001` (`VITE_API_URL`), frontend `:5174`, CORS allows
+  `:5174` (from M0).
+
+---
+
 ## Patterns to Follow
 
 ### Backend route + test

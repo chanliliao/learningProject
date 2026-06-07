@@ -42,6 +42,19 @@ in the run's own data.
 
 ---
 
+## Conventions (per spec — apply throughout)
+
+- **Async backend:** node/handler funcs `async def`; `AsyncSession` + awaited queries;
+  `await run_structured(...)`; graph via `await graph.ainvoke(...)`.
+- **Embeddings:** attempt OpenRouter (`EMBEDDINGS_PROVIDER=openrouter`); **fall back to FastEmbed**
+  (`llama-index-embeddings-fastembed`, local ONNX) when OpenRouter embeddings are unsupported — make
+  the embed model selection a single factory keyed on `settings.embeddings_provider`. Tests inject
+  `MockEmbedding` + in-memory Qdrant (`QdrantClient(location=":memory:")`).
+- **Frontend uses TanStack Query** (`useMutation` for chat send) — not raw `fetch`+`useState`.
+- **Ports/origins:** backend `:8001` (`VITE_API_URL`), frontend `:5174`, CORS `:5174` (from M0).
+
+---
+
 ## Patterns to Follow
 
 ### PydanticAI node (existing) — `app/agents/map.py` (M1): `build_agent(OutModel, system) -> run_structured`.
@@ -103,7 +116,8 @@ in the run's own data.
 
 - **File:** `backend/pyproject.toml` (UPDATE)
 - [ ] **Step 1 — add** `llama-index-core>=0.12`, `llama-index-vector-stores-qdrant>=0.4`,
-  `llama-index-embeddings-openai>=0.3` (point at OpenRouter via base_url), `ragas>=0.2`; `uv sync`.
+  `llama-index-embeddings-openai>=0.3` (OpenRouter via base_url),
+  `llama-index-embeddings-fastembed>=0.3` (offline fallback), `ragas>=0.2`; `uv sync`.
 - [ ] **Step 2 — verify** imports: `from llama_index.core import VectorStoreIndex`,
   `from llama_index.vector_stores.qdrant import QdrantVectorStore`.
 - [ ] **Step 3 — commit:** `chore: add llama-index, qdrant store, ragas deps`

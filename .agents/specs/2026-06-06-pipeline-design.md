@@ -46,12 +46,29 @@ avoiding redundant overlap (no standalone LangChain chains; Qdrant instead of pg
 | Migrations | **Alembic** | Versioned Postgres schema. |
 | Observability | **Langfuse** | Traces every LLM call + prompt versioning + eval UI. A thin local `LLMCall` table is kept as an audit mirror. |
 | Evaluation | **Ragas** + custom harness | Ragas for Support/RAG metrics; custom golden-set precision/recall for Map. |
-| LLM gateway | **OpenRouter** | Single API for chat + embeddings; cheapest workable model, per-stage configurable. |
+| LLM gateway | **OpenRouter** | Single API for chat; cheapest workable model, per-stage configurable. |
+| Embeddings | **OpenRouter** (primary) → **FastEmbed** (fallback) | OpenRouter embedding endpoint attempted first; if unsupported, fall back to local FastEmbed (ONNX, offline). |
 | XML parsing | **lxml** | Deterministic ACORD XML parsing in Extract. |
-| ORM | **SQLModel** | Postgres models. |
+| ORM | **SQLModel** (async) | Postgres models over async SQLAlchemy. |
+| Frontend data layer | **TanStack Query** | Server-state: polling, caching, retries for run status + reviews. |
+| Containerization | **Docker Compose (full stack)** | Postgres, Qdrant, backend, and frontend all run via compose. |
 
 **Deliberately excluded:** standalone LangChain chains (LangGraph already builds on LangChain;
 using both high-level is redundant) and pgvector (Qdrant fills the vector role).
+
+### Cross-cutting conventions (apply to ALL milestones)
+
+- **Async backend end-to-end.** FastAPI handlers are `async def`; DB uses **async SQLAlchemy**
+  (`create_async_engine`, `AsyncSession`); PydanticAI uses `await agent.run(...)`; LangGraph uses
+  `await graph.ainvoke(...)` / `astream` with an **async checkpointer** (`AsyncPostgresSaver`,
+  `MemorySaver` in tests). Tests use `httpx.AsyncClient` + `asyncio_mode="auto"` (already set).
+- **Frontend uses TanStack Query** for all backend calls (`useQuery` with `refetchInterval` for run
+  polling; `useMutation` for reviews). Wrap the app in `QueryClientProvider`.
+- **Full Docker Compose:** backend + frontend have Dockerfiles and run as compose services
+  alongside Postgres + Qdrant; local `uv run` / `npm run dev` remain available for hot-reload dev.
+- **Embeddings:** attempt OpenRouter; on failure fall back to FastEmbed (configurable via
+  `EMBEDDINGS_PROVIDER`).
+- **API prefix:** all app routes under `/api` (health may stay at `/health`).
 
 ---
 
@@ -299,15 +316,30 @@ LLM key) surface on a tiny surface, not buried under feature code.
 
 ---
 
+## Ports (host) — chosen to avoid existing services
+
+The developer already runs services on 5432, 6333, 3000, 8000. **Do not use those.** Host ports:
+
+| Service | Container | Host |
+|---|---|---|
+| Postgres | 5432 | **5433** |
+| Qdrant HTTP | 6333 | **6433** |
+| Qdrant gRPC | 6334 | **6434** |
+| Backend (FastAPI) | 8000 | **8001** |
+| Frontend (Vite) | 5173 | **5174** |
+
+---
+
 ## Dev Commands (additions)
 
 | Task | Command |
 |---|---|
-| Start Postgres + Qdrant | `docker-compose up -d` |
+| Start full stack | `docker-compose up -d` (postgres, qdrant, backend, frontend) |
+| Start infra only | `docker-compose up -d db qdrant` |
 | Apply migrations | `cd backend && uv run alembic upgrade head` |
 | Run eval harness | `cd backend && uv run python -m eval` |
-| Start backend | `cd backend && uv run fastapi dev app/main.py` (existing) |
-| Start frontend | `cd frontend && npm run dev` (existing) |
+| Backend (local hot-reload) | `cd backend && uv run fastapi dev app/main.py --port 8001` |
+| Frontend (local hot-reload) | `cd frontend && npm run dev -- --port 5174` |
 
 ---
 
@@ -315,10 +347,14 @@ LLM key) surface on a tiny surface, not buried under feature code.
 
 Backend `backend/.env` (gitignored):
 
-- `OPENROUTER_API_KEY` — OpenRouter API key (chat + embeddings).
-- `DATABASE_URL` — Postgres connection string (matches docker-compose).
-- `QDRANT_URL` — Qdrant endpoint (default `http://localhost:6333`).
+- `OPENROUTER_API_KEY` — OpenRouter API key (chat; embeddings attempted here too).
+- `DATABASE_URL` — async Postgres URL, e.g. `postgresql+asyncpg://pipeline:pipeline@localhost:5433/pipeline`
+  (alembic uses a sync URL variant).
+- `QDRANT_URL` — Qdrant endpoint (default `http://localhost:6433`).
+- `EMBEDDINGS_PROVIDER` — `openrouter` (default) or `fastembed` (offline fallback).
 - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` — Langfuse (Cloud free tier or
   self-hosted). Optional in dev; tracing no-ops if unset.
+
+Frontend `frontend/.env.local`: `VITE_API_URL=http://localhost:8001`.
 
 Frontend `frontend/.env.local` (existing): `VITE_API_URL`.

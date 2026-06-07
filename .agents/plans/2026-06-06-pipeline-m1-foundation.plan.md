@@ -94,7 +94,21 @@ pytest config (`backend/pyproject.toml:17-20`): `testpaths=["tests"]`, `pythonpa
   `MemorySaver` checkpointer; the DB is in-memory SQLite. No network in tests. Langfuse no-ops when
   keys are unset.
 - **M1 DB note:** no pgvector/Qdrant rows are written in M1 (RAG is M4). Qdrant runs in compose for
-  completeness; its client is added in M4. SQLite is therefore valid for all M1 tests.
+  completeness; its client is added in M4. SQLite (**`sqlite+aiosqlite://`**, async) is valid for all
+  M1 tests.
+
+### Async conventions (govern every M1 task — per spec)
+
+- All node functions, the graph runner, and route handlers are **`async def`**.
+- DB access is awaited: `await session.exec(select(...))`, `await session.commit()`, using
+  `AsyncSession`. Model snippets in Story 2 that show sync `create_engine` are illustrative — in the
+  actual tests use `create_async_engine("sqlite+aiosqlite://")` + `await conn.run_sync(metadata.create_all)`.
+- LLM calls use `await run_structured(...)` (Story 3) — never `run_sync`.
+- The LangGraph graph is invoked with `await graph.ainvoke(...)` and compiled with an **async
+  checkpointer**: `AsyncPostgresSaver` in app, `MemorySaver` in tests. `start_run` is `async`.
+- Tests for async code use `@pytest.mark.asyncio` (asyncio_mode="auto" is set); API tests may use
+  FastAPI `TestClient` (it drives async endpoints) or `httpx.AsyncClient`.
+- Add dev deps `aiosqlite` (+ `pytest-asyncio`, already present).
 
 ---
 
@@ -138,39 +152,55 @@ pytest config (`backend/pyproject.toml:17-20`): `testpaths=["tests"]`, `pythonpa
   all import. If `uv sync` resolves newer compatible versions, accept them.
 - [ ] **Step 3 — commit:** `chore: add langgraph, sqlmodel, alembic, lxml deps`
 
-### Task 1.2: Add SQLModel session helper
+### Task 1.2: Add async session helper
 
-- **File:** `backend/app/db.py` (UPDATE — extends M0's `get_engine`/`ping_db`)
+> **Async (per spec).** M0's `get_engine()` returns an async engine (`create_async_engine`,
+> asyncpg). M1 adds an `AsyncSession` factory. Tests use `sqlite+aiosqlite://` (add `aiosqlite` to
+> dev deps) so async sessions work offline. SQLModel models are plain table classes; they work with
+> `AsyncSession` via `await session.exec(...)`.
+
+- **File:** `backend/app/db.py` (UPDATE — extends M0's async `get_engine`/`ping_db`)
 - [ ] **Step 1 — write failing test** `backend/tests/test_db_session.py`:
 
 ```python
-def test_session_yields_usable_session(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+import pytest
+from sqlmodel import SQLModel
+
+@pytest.mark.asyncio
+async def test_async_session_works(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite://")
     from app.config import get_settings
     get_settings.cache_clear()
-    from app.db import get_session
-    gen = get_session()
-    session = next(gen)
+    from app.db import get_engine, get_session
+    async with get_engine().begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    agen = get_session()
+    session = await agen.__anext__()
     assert session is not None
-    gen.close()
+    await agen.aclose()
 ```
 
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement** in `app/db.py` (keep M0's `get_engine`/`ping_db`):
+- [ ] **Step 3 — implement** in `app/db.py` (keep M0's async `get_engine`/`ping_db`):
 
 ```python
-from sqlmodel import Session
-# get_engine() already defined in M0
+from sqlmodel.ext.asyncio.session import AsyncSession
+from app.db import get_engine  # already defined in M0 (async engine)
 
-def get_session():
-    with Session(get_engine()) as session:
+async def get_session():
+    async with AsyncSession(get_engine()) as session:
         yield session
 ```
 
-  > If M0's `get_engine` used SQLAlchemy's `create_engine`, it is compatible with `sqlmodel.Session`.
-  > Keep one `get_engine`; do not duplicate.
+  > Keep one `get_engine`; do not duplicate. Use `sqlmodel`'s `AsyncSession`. All DB access in M1+ is
+  > `await`ed (`await session.exec(select(...))`, `await session.commit()`).
 
-- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: add sqlmodel session dependency`
+- [ ] **Step 4 — run** → PASS. **Step 5 — commit:** `feat: add async session dependency`
+
+> **Test-DB note:** model tests in Story 2 below use an **async** in-memory engine
+> (`create_async_engine("sqlite+aiosqlite://")`) and `await conn.run_sync(SQLModel.metadata.create_all)`
+> inside an async test, rather than the sync `create_engine` shown in those snippets. Add
+> `aiosqlite` + `pytest-asyncio` (already present) to dev deps.
 
 ---
 
@@ -358,8 +388,11 @@ class LLMCall(SQLModel, table=True):
 - [ ] **Step 1 — write failing test** `backend/tests/llm/test_client.py`:
 
 ```python
+import pytest
 from pydantic import BaseModel
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
 import app.models  # register tables
 from app.models.audit import LLMCall
 from app.llm.client import build_agent, run_structured
@@ -367,21 +400,23 @@ from app.llm.client import build_agent, run_structured
 class Out(BaseModel):
     answer: str
 
-def test_run_structured_uses_test_model_and_logs():
-    engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
+@pytest.mark.asyncio
+async def test_run_structured_uses_test_model_and_logs():
+    engine = create_async_engine("sqlite+aiosqlite://")
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
     agent = build_agent(Out, system="say hi", mode="test")  # PydanticAI TestModel
-    with Session(engine) as s:
-        result = run_structured(agent, "hello", stage="map", run_id=None, session=s)
-        s.commit()
+    async with AsyncSession(engine) as s:
+        result = await run_structured(agent, "hello", stage="map", run_id=None, session=s)
+        await s.commit()
         assert isinstance(result, Out)
-        rows = s.exec(select(LLMCall)).all()
+        rows = (await s.exec(select(LLMCall))).all()
         assert len(rows) == 1
         assert rows[0].stage == "map"
 ```
 
 - [ ] **Step 2 — run** → FAIL.
-- [ ] **Step 3 — implement** `app/llm/client.py`:
+- [ ] **Step 3 — implement** `app/llm/client.py` (**async**):
 
 ```python
 import time
@@ -391,7 +426,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 from app.config import get_settings
 from app.models.audit import LLMCall
 
@@ -410,10 +445,10 @@ def _model(mode: str | None = None):
 def build_agent(output_type: type[T], system: str, mode: str | None = None) -> Agent:
     return Agent(_model(mode), output_type=output_type, system_prompt=system)
 
-def run_structured(agent: Agent, user: str, *, stage: str,
-                   run_id: int | None, session: Session | None) -> BaseModel:
+async def run_structured(agent: Agent, user: str, *, stage: str,
+                         run_id: int | None, session: AsyncSession | None) -> BaseModel:
     start = time.monotonic()
-    result = agent.run_sync(user)          # PydanticAI validates output_type
+    result = await agent.run(user)          # async; PydanticAI validates output_type
     latency_ms = int((time.monotonic() - start) * 1000)
     usage = result.usage()
     if session is not None:
