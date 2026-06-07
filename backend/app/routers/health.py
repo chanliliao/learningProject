@@ -3,6 +3,7 @@ from fastapi.concurrency import run_in_threadpool
 from qdrant_client import QdrantClient
 from app import db as db_module
 from app.config import get_settings
+from app.llm.client import ping_llm
 
 router = APIRouter()
 
@@ -29,3 +30,12 @@ async def health_qdrant():
         return {"status": "ok"}
     except Exception:
         raise HTTPException(status_code=503, detail="qdrant unavailable")
+
+
+@router.get("/health/llm")
+async def health_llm():
+    try:
+        reply = await ping_llm()
+        return {"status": "ok", "reply": reply}
+    except Exception:
+        raise HTTPException(status_code=503, detail="llm unavailable")
