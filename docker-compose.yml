@@ -11,6 +11,20 @@ services:
     image: qdrant/qdrant:latest
     ports: ["6433:6333", "6434:6334"]
     volumes: ["qdrantdata:/qdrant/storage"]
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pipeline:pipeline@db:5432/pipeline
+      QDRANT_URL: http://qdrant:6333
+    ports: ["8001:8000"]
+    depends_on: [db, qdrant]
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://localhost:8001
+    ports: ["5174:5173"]
+    depends_on: [backend]
 volumes:
   pgdata:
   qdrantdata:
