@@ -1,0 +1,27 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding id=\"Holding1\">\n        <Annuity>\n          <ContractNumber>ANN-2024-003321</ContractNumber>\n          <AnnuityType tc=\"4\">DeferredAnnuity</AnnuityType>\n          <PremiumAmt>50000.00</PremiumAmt>\n          <ContractDate>2024-02-14</ContractDate>\n          <SurrenderPeriod>7</SurrenderPeriod>\n        </Annuity>\n      </Holding>\n      <Party id=\"Party1\">\n        <Person>\n          <FirstName>Robert</FirstName>\n          <LastName>Martinez</LastName>\n          <BirthDate>1955-04-28</BirthDate>\n        </Person>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["contractNumber", "annuityType", "premiumAmount", "contractDate", "ownerFirstName", "ownerLastName"],
+    "properties": {
+      "contractNumber": {"type": "string"},
+      "annuityType": {"type": "string"},
+      "premiumAmount": {"type": "number"},
+      "contractDate": {"type": "string"},
+      "surrenderPeriod": {"type": "number"},
+      "ownerFirstName": {"type": "string"},
+      "ownerLastName": {"type": "string"},
+      "ownerDateOfBirth": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Annuity.ContractNumber", "target_path": "contractNumber"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Annuity.AnnuityType", "target_path": "annuityType"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Annuity.PremiumAmt", "target_path": "premiumAmount"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Annuity.ContractDate", "target_path": "contractDate"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Annuity.SurrenderPeriod", "target_path": "surrenderPeriod"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "ownerFirstName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "ownerLastName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.BirthDate", "target_path": "ownerDateOfBirth"}
+  ]
+}

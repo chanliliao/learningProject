@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Deliberately messy: missing FaceAmt (required), has unexpected UnknownField -->
+<TXLife xmlns="http://ACORD.org/Standards/Life/2">
+  <TXLifeRequest>
+    <OLifE>
+      <Holding id="Holding1">
+        <Policy>
+          <PolNumber>POL-2024-MESSY</PolNumber>
+          <ProductCode tc="1">Term</ProductCode>
+          <!-- FaceAmt intentionally omitted -->
+          <IssueDate>2024-06-01</IssueDate>
+          <UnknownField>unexpected_value</UnknownField>
+        </Policy>
+      </Holding>
+      <Party id="Party1" PartyTypeCode="1">
+        <Person>
+          <FirstName>John</FirstName>
+          <!-- LastName intentionally omitted -->
+          <BirthDate>1975-11-30</BirthDate>
+          <Gender tc="1">Male</Gender>
+        </Person>
+      </Party>
+    </OLifE>
+  </TXLifeRequest>
+</TXLife>

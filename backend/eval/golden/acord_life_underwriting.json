@@ -1,0 +1,29 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding id=\"Holding1\">\n        <Policy>\n          <PolNumber>UW-2024-012345</PolNumber>\n          <ProductCode tc=\"2\">WholeLife</ProductCode>\n          <FaceAmt>500000.00</FaceAmt>\n          <IssueDate>2024-04-10</IssueDate>\n        </Policy>\n      </Holding>\n      <Party id=\"Party1\">\n        <Person>\n          <FirstName>Lisa</FirstName>\n          <LastName>Thompson</LastName>\n          <BirthDate>1982-01-30</BirthDate>\n          <Gender tc=\"2\">Female</Gender>\n        </Person>\n        <Risk>\n          <RiskClass tc=\"1\">Preferred</RiskClass>\n          <OccupationCode>07</OccupationCode>\n        </Risk>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policyNumber", "faceAmount", "issueDate", "insuredFirstName", "insuredLastName"],
+    "properties": {
+      "policyNumber": {"type": "string"},
+      "faceAmount": {"type": "number"},
+      "issueDate": {"type": "string"},
+      "insuredFirstName": {"type": "string"},
+      "insuredLastName": {"type": "string"},
+      "insuredDateOfBirth": {"type": "string"},
+      "insuredGender": {"type": "string"},
+      "riskClass": {"type": "string"},
+      "occupationCode": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.PolNumber", "target_path": "policyNumber"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.FaceAmt", "target_path": "faceAmount"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.IssueDate", "target_path": "issueDate"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "insuredFirstName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "insuredLastName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.BirthDate", "target_path": "insuredDateOfBirth"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.Gender", "target_path": "insuredGender"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Risk.RiskClass", "target_path": "riskClass"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Risk.OccupationCode", "target_path": "occupationCode"}
+  ]
+}

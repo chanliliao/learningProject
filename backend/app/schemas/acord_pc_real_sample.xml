@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minimal adapted P&C ACORD sample; source structure inspired by appulate/appulate-acordxml-svc-sample (minimal/adapted) -->
+<ACORD>
+  <InsuranceSvcRq>
+    <RqUID>12345678-1234-1234-1234-123456789012</RqUID>
+    <TransactionRequestDt>2024-01-15</TransactionRequestDt>
+    <PolicySummaryRq>
+      <MsgStatus>
+        <MsgStatusCd>Success</MsgStatusCd>
+      </MsgStatus>
+      <PersPolicy>
+        <PolicyNumber>PC-2024-007890</PolicyNumber>
+        <LOBCd>HOME</LOBCd>
+        <ContractTerm>
+          <EffectiveDt>2024-01-01</EffectiveDt>
+          <ExpirationDt>2025-01-01</ExpirationDt>
+        </ContractTerm>
+        <CurrentTermAmt>
+          <Amt>1250.00</Amt>
+        </CurrentTermAmt>
+      </PersPolicy>
+      <InsuredOrPrincipal>
+        <GeneralPartyInfo>
+          <NameInfo>
+            <PersonName>
+              <GivenName>Robert</GivenName>
+              <Surname>Smith</Surname>
+            </PersonName>
+          </NameInfo>
+          <Addr>
+            <Addr1>123 Main St</Addr1>
+            <City>Springfield</City>
+            <StateProvCd>IL</StateProvCd>
+            <PostalCode>62701</PostalCode>
+          </Addr>
+        </GeneralPartyInfo>
+      </InsuredOrPrincipal>
+    </PolicySummaryRq>
+  </InsuranceSvcRq>
+</ACORD>

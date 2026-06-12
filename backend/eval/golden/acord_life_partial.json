@@ -1,0 +1,20 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding>\n        <Policy>\n          <PolNumber>POL-TEST-999</PolNumber>\n          <FaceAmt>250000.00</FaceAmt>\n        </Policy>\n      </Holding>\n      <Party>\n        <Person>\n          <FirstName>John</FirstName>\n          <LastName>Smith</LastName>\n          <BirthDate>1975-06-10</BirthDate>\n        </Person>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policyNumber", "faceAmount", "insuredFirstName", "insuredLastName"],
+    "properties": {
+      "policyNumber": {"type": "string"},
+      "faceAmount": {"type": "number"},
+      "insuredFirstName": {"type": "string"},
+      "insuredLastName": {"type": "string"},
+      "insuredDateOfBirth": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.PolNumber", "target_path": "policyNumber"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.FaceAmt", "target_path": "faceAmount"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "insuredFirstName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "insuredLastName"}
+  ]
+}

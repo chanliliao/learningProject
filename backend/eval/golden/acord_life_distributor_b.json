@@ -1,0 +1,25 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding id=\"Holding1\">\n        <Policy>\n          <PolNumber>POL-2024-009900</PolNumber>\n          <ProductCode tc=\"2\">WholeLife</ProductCode>\n          <FaceAmt>750000.00</FaceAmt>\n          <IssueDate>2024-05-20</IssueDate>\n        </Policy>\n      </Holding>\n      <Party id=\"Party1\">\n        <Person>\n          <FirstName>Sarah</FirstName>\n          <LastName>Williams</LastName>\n          <BirthDate>1990-11-03</BirthDate>\n        </Person>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policy_id", "product_name", "coverage_amount", "effective_date", "insured_first_name", "insured_last_name"],
+    "properties": {
+      "policy_id": {"type": "string"},
+      "product_name": {"type": "string"},
+      "coverage_amount": {"type": "number"},
+      "effective_date": {"type": "string"},
+      "insured_first_name": {"type": "string"},
+      "insured_last_name": {"type": "string"},
+      "insured_dob": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.PolNumber", "target_path": "policy_id"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.ProductCode", "target_path": "product_name"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.FaceAmt", "target_path": "coverage_amount"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.IssueDate", "target_path": "effective_date"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "insured_first_name"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "insured_last_name"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.BirthDate", "target_path": "insured_dob"}
+  ]
+}

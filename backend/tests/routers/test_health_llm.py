@@ -10,7 +10,7 @@ def test_health_llm_ok(monkeypatch):
         return "Hello there"
 
     monkeypatch.setattr(health_router, "ping_llm", mock_ping_ok)
-    response = client.get("/health/llm")
+    response = client.get("/api/health/llm")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -22,5 +22,5 @@ def test_health_llm_error(monkeypatch):
         raise Exception("llm down")
 
     monkeypatch.setattr(health_router, "ping_llm", mock_ping_fail)
-    response = client.get("/health/llm")
+    response = client.get("/api/health/llm")
     assert response.status_code == 503

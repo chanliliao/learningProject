@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TXLife xmlns="http://ACORD.org/Standards/Life/2">
+  <TXLifeRequest>
+    <OLifE>
+      <Holding id="Holding1">
+        <Policy>
+          <PolNumber>POL-2024-001234</PolNumber>
+          <ProductCode tc="2">WholeLife</ProductCode>
+          <FaceAmt>500000.00</FaceAmt>
+          <IssueDate>2024-01-15</IssueDate>
+          <PlanName>WL Premium Select</PlanName>
+          <BillingMode tc="12">Monthly</BillingMode>
+        </Policy>
+      </Holding>
+      <Party id="Party1" PartyTypeCode="1">
+        <Person>
+          <FirstName>Jane</FirstName>
+          <LastName>Doe</LastName>
+          <BirthDate>1980-03-22</BirthDate>
+          <Gender tc="2">Female</Gender>
+          <SSN>123-45-6789</SSN>
+        </Person>
+        <Risk>
+          <RiskClass tc="1">Standard</RiskClass>
+        </Risk>
+      </Party>
+      <Relation id="Relation1" OriginatingObjectID="Holding1" RelatedObjectID="Party1">
+        <RelationRoleCode tc="32">Insured</RelationRoleCode>
+      </Relation>
+    </OLifE>
+  </TXLifeRequest>
+</TXLife>

@@ -12,7 +12,7 @@ def test_health_db_ok(monkeypatch):
         pass
 
     monkeypatch.setattr(db_module, "ping_db", mock_ping_ok)
-    response = client.get("/health/db")
+    response = client.get("/api/health/db")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
@@ -22,5 +22,5 @@ def test_health_db_error(monkeypatch):
         raise Exception("db down")
 
     monkeypatch.setattr(db_module, "ping_db", mock_ping_fail)
-    response = client.get("/health/db")
+    response = client.get("/api/health/db")
     assert response.status_code == 503

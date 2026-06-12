@@ -1,0 +1,26 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding id=\"Holding1\">\n        <Policy>\n          <PolNumber>POL-2024-007711</PolNumber>\n          <ProductCode tc=\"1\">Term</ProductCode>\n          <FaceAmt>1000000.00</FaceAmt>\n          <IssueDate>2024-03-10</IssueDate>\n        </Policy>\n      </Holding>\n      <Party id=\"Party1\">\n        <Person>\n          <FirstName>Michael</FirstName>\n          <LastName>Johnson</LastName>\n          <BirthDate>1975-08-14</BirthDate>\n          <Gender tc=\"1\">Male</Gender>\n        </Person>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policy_id", "coverage_type", "coverage_amount", "effective_date", "client_given_name", "client_family_name"],
+    "properties": {
+      "policy_id": {"type": "string"},
+      "coverage_type": {"type": "string"},
+      "coverage_amount": {"type": "number"},
+      "effective_date": {"type": "string"},
+      "client_given_name": {"type": "string"},
+      "client_family_name": {"type": "string"},
+      "client_birth_date": {"type": "string"},
+      "client_sex": {"type": "string", "enum": ["M", "F", "X"]}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.PolNumber", "target_path": "policy_id"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.ProductCode", "target_path": "coverage_type"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.FaceAmt", "target_path": "coverage_amount"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.IssueDate", "target_path": "effective_date"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "client_given_name"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "client_family_name"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.BirthDate", "target_path": "client_birth_date"}
+  ]
+}

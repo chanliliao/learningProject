@@ -1,0 +1,29 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding id=\"Holding1\">\n        <Policy>\n          <PolNumber>CORP-2024-000099</PolNumber>\n          <ProductCode tc=\"2\">KeyMan</ProductCode>\n          <FaceAmt>2000000.00</FaceAmt>\n          <IssueDate>2024-01-31</IssueDate>\n        </Policy>\n      </Holding>\n      <Party id=\"Owner1\">\n        <Organization>\n          <OrgName>Acme Corp</OrgName>\n          <TaxID>12-3456789</TaxID>\n        </Organization>\n      </Party>\n      <Party id=\"Insured1\">\n        <Person>\n          <FirstName>James</FirstName>\n          <LastName>Wilson</LastName>\n          <BirthDate>1970-07-19</BirthDate>\n        </Person>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policyNumber", "productType", "faceAmount", "issueDate", "insuredFirstName", "insuredLastName"],
+    "properties": {
+      "policyNumber": {"type": "string"},
+      "productType": {"type": "string"},
+      "faceAmount": {"type": "number"},
+      "issueDate": {"type": "string"},
+      "ownerName": {"type": "string"},
+      "ownerTaxId": {"type": "string"},
+      "insuredFirstName": {"type": "string"},
+      "insuredLastName": {"type": "string"},
+      "insuredDateOfBirth": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.PolNumber", "target_path": "policyNumber"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.ProductCode", "target_path": "productType"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.FaceAmt", "target_path": "faceAmount"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.IssueDate", "target_path": "issueDate"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Organization.OrgName", "target_path": "ownerName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Organization.TaxID", "target_path": "ownerTaxId"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "insuredFirstName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "insuredLastName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.BirthDate", "target_path": "insuredDateOfBirth"}
+  ]
+}

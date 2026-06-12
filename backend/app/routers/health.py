@@ -8,6 +8,11 @@ from app.llm.client import ping_llm
 router = APIRouter()
 
 
+@router.get("/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
 @router.get("/health/db")
 async def health_db():
     try:

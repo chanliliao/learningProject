@@ -10,7 +10,7 @@ def test_health_qdrant_ok(monkeypatch):
         pass
 
     monkeypatch.setattr(health_router, "ping_qdrant", mock_ping_ok)
-    response = client.get("/health/qdrant")
+    response = client.get("/api/health/qdrant")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
@@ -20,5 +20,5 @@ def test_health_qdrant_error(monkeypatch):
         raise Exception("qdrant down")
 
     monkeypatch.setattr(health_router, "ping_qdrant", mock_ping_fail)
-    response = client.get("/health/qdrant")
+    response = client.get("/api/health/qdrant")
     assert response.status_code == 503
