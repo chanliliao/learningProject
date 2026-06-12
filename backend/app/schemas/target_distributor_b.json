@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DistributorB Policy Schema",
+  "type": "object",
+  "required": ["policy_id", "coverage_type", "coverage_amount", "effective_date", "client_given_name", "client_family_name"],
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "description": "Policy reference number"
+    },
+    "coverage_type": {
+      "type": "string",
+      "description": "Insurance product category"
+    },
+    "coverage_amount": {
+      "type": "number",
+      "description": "Total coverage amount in dollars"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Coverage start date"
+    },
+    "client_given_name": {
+      "type": "string",
+      "description": "Primary insured given name"
+    },
+    "client_family_name": {
+      "type": "string",
+      "description": "Primary insured family name"
+    },
+    "client_birth_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Primary insured birth date"
+    },
+    "client_sex": {
+      "type": "string",
+      "enum": ["M", "F", "X"],
+      "description": "Primary insured sex code"
+    },
+    "billing_frequency": {
+      "type": "string",
+      "description": "Premium billing frequency"
+    }
+  }
+}

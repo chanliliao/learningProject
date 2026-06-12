@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DistributorA Policy Schema",
+  "type": "object",
+  "required": ["policyNumber", "productType", "faceAmount", "issueDate", "insuredFirstName", "insuredLastName"],
+  "properties": {
+    "policyNumber": {
+      "type": "string",
+      "description": "Unique policy identifier"
+    },
+    "productType": {
+      "type": "string",
+      "enum": ["WholeLife", "Term", "Universal"],
+      "description": "Product type code"
+    },
+    "faceAmount": {
+      "type": "number",
+      "description": "Policy face amount in USD"
+    },
+    "issueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Policy issue date (YYYY-MM-DD)"
+    },
+    "insuredFirstName": {
+      "type": "string",
+      "description": "Insured person first name"
+    },
+    "insuredLastName": {
+      "type": "string",
+      "description": "Insured person last name"
+    },
+    "insuredDateOfBirth": {
+      "type": "string",
+      "format": "date",
+      "description": "Insured person date of birth"
+    },
+    "insuredGender": {
+      "type": "string",
+      "enum": ["Male", "Female", "Other"],
+      "description": "Insured person gender"
+    }
+  }
+}

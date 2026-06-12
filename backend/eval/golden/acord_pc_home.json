@@ -1,0 +1,23 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ACORD>\n  <InsuranceSvcRq>\n    <PolicySummaryRq>\n      <PersPolicy>\n        <PolicyNumber>PC-2024-007890</PolicyNumber>\n        <LOBCd>HOME</LOBCd>\n        <ContractTerm>\n          <EffectiveDt>2024-01-01</EffectiveDt>\n        </ContractTerm>\n        <CurrentTermAmt>\n          <Amt>1250.00</Amt>\n        </CurrentTermAmt>\n      </PersPolicy>\n      <InsuredOrPrincipal>\n        <GeneralPartyInfo>\n          <NameInfo>\n            <PersonName>\n              <GivenName>Robert</GivenName>\n              <Surname>Smith</Surname>\n            </PersonName>\n          </NameInfo>\n        </GeneralPartyInfo>\n      </InsuredOrPrincipal>\n    </PolicySummaryRq>\n  </InsuranceSvcRq>\n</ACORD>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policy_id", "coverage_type", "coverage_amount", "effective_date", "client_given_name", "client_family_name"],
+    "properties": {
+      "policy_id": {"type": "string"},
+      "coverage_type": {"type": "string"},
+      "coverage_amount": {"type": "number"},
+      "effective_date": {"type": "string"},
+      "client_given_name": {"type": "string"},
+      "client_family_name": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "InsuranceSvcRq.PolicySummaryRq.PersPolicy.PolicyNumber", "target_path": "policy_id"},
+    {"source_path": "InsuranceSvcRq.PolicySummaryRq.PersPolicy.LOBCd", "target_path": "coverage_type"},
+    {"source_path": "InsuranceSvcRq.PolicySummaryRq.PersPolicy.CurrentTermAmt.Amt", "target_path": "coverage_amount"},
+    {"source_path": "InsuranceSvcRq.PolicySummaryRq.PersPolicy.ContractTerm.EffectiveDt", "target_path": "effective_date"},
+    {"source_path": "InsuranceSvcRq.PolicySummaryRq.InsuredOrPrincipal.GeneralPartyInfo.NameInfo.PersonName.GivenName", "target_path": "client_given_name"},
+    {"source_path": "InsuranceSvcRq.PolicySummaryRq.InsuredOrPrincipal.GeneralPartyInfo.NameInfo.PersonName.Surname", "target_path": "client_family_name"}
+  ]
+}

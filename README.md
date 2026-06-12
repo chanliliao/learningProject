@@ -1,38 +1,68 @@
 # learningProject
 
-Learning project — React + FastAPI skeleton.
+Learning project — React + FastAPI pipeline skeleton.
 
 ## Stack
 
-- **Frontend:** Vite + React 19 + TypeScript
-- **Backend:** FastAPI + Python 3.12 (managed by uv)
+- **Frontend:** Vite + React 19 + TypeScript + Tailwind + TanStack Query
+- **Backend:** FastAPI + Python 3.12 (async, managed by uv)
+- **Infra:** Postgres 16, Qdrant, Docker Compose
 
-## Quick Start
+## Ports
 
-**Backend:**
+| Service | Host port |
+|---|---|
+| Postgres | 5433 |
+| Qdrant | 6433 / 6434 |
+| Backend | 8001 |
+| Frontend | 5174 |
+
+## M0 Smoke Test
+
+### Option A — Full Docker Compose
+
 ```bash
-cd backend
-uv sync
-uv run fastapi dev app/main.py
-# → http://localhost:8000
-# → http://localhost:8000/docs
+cp backend/.env.example backend/.env
+# Set OPENROUTER_API_KEY in backend/.env
+docker compose up -d --build
+# Open http://localhost:5174 — all rows green + LLM reply
 ```
 
-**Frontend:**
+### Option B — Local dev (infra only in Docker)
+
 ```bash
+docker compose up -d db qdrant
+
+# Backend
+cd backend
+cp ../.env.example .env  # or create backend/.env with your key
+uv sync
+uv run fastapi dev app/main.py --port 8001
+
+# Frontend (new terminal)
 cd frontend
+cp .env.local.example .env.local
 npm install
-cp .env.example .env.local
 npm run dev
-# → http://localhost:5173
+# Open http://localhost:5174
 ```
 
 ## Tests
 
 ```bash
 # Backend
-cd backend && uv run pytest
+cd backend && uv run pytest -v
 
 # Frontend
-cd frontend && npm test
+cd frontend && npm test && npm run build
+```
+
+## Development
+
+```bash
+# Backend routes → backend/app/routers/
+# Register router in backend/app/main.py
+
+# Frontend components → frontend/src/components/
+# API calls → frontend/src/api.ts (reads VITE_API_URL)
 ```

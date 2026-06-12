@@ -1,0 +1,31 @@
+{
+  "source_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TXLife xmlns=\"http://ACORD.org/Standards/Life/2\">\n  <TXLifeRequest>\n    <OLifE>\n      <Holding id=\"Holding1\">\n        <Policy>\n          <PolNumber>TERM-2024-005678</PolNumber>\n          <ProductCode tc=\"1\">Term20</ProductCode>\n          <FaceAmt>1000000.00</FaceAmt>\n          <IssueDate>2024-03-01</IssueDate>\n          <MaturityDate>2044-03-01</MaturityDate>\n          <AnnualPremAmt>1200.00</AnnualPremAmt>\n        </Policy>\n      </Holding>\n      <Party id=\"Party1\">\n        <Person>\n          <FirstName>Michael</FirstName>\n          <LastName>Chen</LastName>\n          <BirthDate>1985-09-14</BirthDate>\n          <Gender tc=\"1\">Male</Gender>\n        </Person>\n      </Party>\n    </OLifE>\n  </TXLifeRequest>\n</TXLife>",
+  "target_schema": {
+    "type": "object",
+    "required": ["policyNumber", "productType", "faceAmount", "issueDate", "insuredFirstName", "insuredLastName"],
+    "properties": {
+      "policyNumber": {"type": "string"},
+      "productType": {"type": "string"},
+      "faceAmount": {"type": "number"},
+      "issueDate": {"type": "string"},
+      "maturityDate": {"type": "string"},
+      "annualPremium": {"type": "number"},
+      "insuredFirstName": {"type": "string"},
+      "insuredLastName": {"type": "string"},
+      "insuredDateOfBirth": {"type": "string"},
+      "insuredGender": {"type": "string"}
+    }
+  },
+  "expected_mappings": [
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.PolNumber", "target_path": "policyNumber"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.ProductCode", "target_path": "productType"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.FaceAmt", "target_path": "faceAmount"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.IssueDate", "target_path": "issueDate"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.MaturityDate", "target_path": "maturityDate"},
+    {"source_path": "TXLifeRequest.OLifE.Holding.Policy.AnnualPremAmt", "target_path": "annualPremium"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.FirstName", "target_path": "insuredFirstName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.LastName", "target_path": "insuredLastName"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.BirthDate", "target_path": "insuredDateOfBirth"},
+    {"source_path": "TXLifeRequest.OLifE.Party.Person.Gender", "target_path": "insuredGender"}
+  ]
+}
